@@ -1,8 +1,16 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   export let items: any = []; // pass in data if it's dynamically updated
-  let grids: any = [],
-    masonryElement: any;
+  let grids: grid[] = [],
+    masonryElement: HTMLDivElement | undefined;
+
+  type grid = {
+    _el: HTMLDivElement;
+    gap: number;
+    items: HTMLElement[];
+    ncol: number;
+    mod: number;
+  };
 
   export let reset: boolean;
   $: if (reset) {
@@ -10,17 +18,17 @@
   }
 
   export const refreshLayout = async () => {
-    grids.forEach(async (grid: any) => {
+    grids.forEach(async (grid: grid) => {
       /* get the post relayout number of columns */
       let ncol = getComputedStyle(grid._el).gridTemplateColumns.split(
         " "
       ).length;
 
-      grid.items.forEach((c: any) => {
+      grid.items.forEach((c: HTMLElement) => {
         let new_h = c.getBoundingClientRect().height;
 
         if (new_h !== +c.dataset.h) {
-          c.dataset.h = new_h;
+          c.dataset.h = new_h.toString();
           grid.mod++;
         }
       });
@@ -30,10 +38,12 @@
         /* update number of columns */
         grid.ncol = ncol;
         /* revert to initial positioning, no margin */
-        grid.items.forEach((c: any) => c.style.removeProperty("margin-top"));
+        grid.items.forEach((c: HTMLElement) =>
+          c.style.removeProperty("margin-top")
+        );
         /* if we have more than one column */
         if (grid.ncol > 1) {
-          grid.items.slice(ncol).forEach((c: any, i: any) => {
+          grid.items.slice(ncol).forEach((c: HTMLElement, i: number) => {
             let prev_fin =
                 grid.items[i].getBoundingClientRect()
                   .bottom /* bottom edge of item above */,
@@ -49,23 +59,24 @@
     });
   };
 
-  const calcGrid = async (_masonryArr: any) => {
+  const calcGrid = async (_masonryArr: HTMLDivElement[]) => {
     await tick();
     if (
       _masonryArr.length &&
       getComputedStyle(_masonryArr[0]).gridTemplateRows !== "masonry"
     ) {
-      grids = _masonryArr.map((grid: any) => {
+      grids = _masonryArr.map((grid) => {
         return {
           _el: grid,
           gap: parseFloat(getComputedStyle(grid).rowGap),
           items: [...grid.childNodes].filter(
-            (c) => c.nodeType === 1 && +getComputedStyle(c).gridColumnEnd !== -1
+            (c: Element) =>
+              c.nodeType === 1 && +getComputedStyle(c).gridColumnEnd !== -1
           ),
           ncol: 0,
           mod: 0,
         };
-      });
+      }) as grid[];
       refreshLayout(); /* initial load */
     }
   };
